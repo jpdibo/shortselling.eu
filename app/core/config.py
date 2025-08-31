@@ -88,9 +88,19 @@ _built = _maybe_build_from_pg_parts()
 if _built and not (os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")):
     os.environ["DATABASE_URL"] = _built
 
+# TEMPORARY FALLBACK - hardcode the working connection string
+# This bypasses all environment variable issues
+TEMP_DATABASE_URL = "postgresql://neondb_owner:npg_y9VtYhw5XvQi@ep-soft-mud-abfn3xqw-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
+# Set it in environment so Pydantic can find it
+if not os.getenv("DATABASE_URL"):
+    os.environ["DATABASE_URL"] = TEMP_DATABASE_URL
+
 # Instantiate settings with clear error messages
 try:
     settings = Settings()
+    print(f"✅ Settings loaded successfully")
+    print(f"📊 Database URL set: {settings.database_url.get_secret_value()[:50]}...")
 except Exception as e:
     missing_url = not (os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL") or _maybe_build_from_pg_parts())
     if missing_url:
