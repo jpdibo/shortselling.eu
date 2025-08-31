@@ -72,8 +72,12 @@ async def startup_event():
     print(f"📊 Database host: {db_host}")
     
     # Ensure database connection with retries
-    from app.db.database import ensure_db_ready, db_ready, init_db
+    from app.db.database import ensure_db_ready, init_db
     ensure_db_ready()
+    
+    # Check database readiness after the function call
+    from app.db.database import db_ready
+    print(f"🔍 Database ready status: {db_ready}")
     
     if db_ready:
         try:
