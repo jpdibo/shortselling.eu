@@ -27,7 +27,14 @@ def normalize_db_url(raw: str) -> str:
     return str(url)
 
 # Get the normalized database URL
-DATABASE_URL = normalize_db_url(settings.database_url.get_secret_value())
+raw_url = settings.database_url.get_secret_value()
+print(f"🐛 RAW URL from settings: {raw_url}")
+
+DATABASE_URL = normalize_db_url(raw_url)
+print(f"🐛 NORMALIZED URL: {DATABASE_URL}")
+
+parsed = make_url(DATABASE_URL)
+print(f"🐛 PARSED - User: {parsed.username}, Host: {parsed.host}, Port: {parsed.port}, DB: {parsed.database}")
 
 # Create database engine with robust production settings
 engine = create_engine(
