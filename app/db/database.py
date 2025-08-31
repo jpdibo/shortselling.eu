@@ -4,16 +4,27 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import settings
 
 # Create database engine with UTF-8 encoding
-engine = create_engine(
-    settings.database_url,
-    poolclass=StaticPool,
-    pool_pre_ping=True,
-    echo=settings.debug,
-    connect_args={
-        "client_encoding": "utf8",
-        "options": "-c client_encoding=utf8"
-    }
-)
+if "localhost" in settings.database_url:
+    # Local development
+    engine = create_engine(
+        settings.database_url,
+        poolclass=StaticPool,
+        pool_pre_ping=True,
+        echo=settings.debug,
+        connect_args={
+            "client_encoding": "utf8",
+            "options": "-c client_encoding=utf8"
+        }
+    )
+else:
+    # Production (Railway/Neon) - simpler configuration
+    engine = create_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+        echo=settings.debug,
+        pool_size=10,
+        max_overflow=20
+    )
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

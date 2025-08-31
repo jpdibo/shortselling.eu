@@ -68,11 +68,13 @@ async def startup_event():
     """Initialize database on startup"""
     try:
         print(f"🔗 Connecting to database...")
-        print(f"📊 Database URL: {settings.database_url[:50]}...")
+        print(f"📊 Full Database URL: {settings.database_url}")
+        print(f"🌍 Environment: {'PRODUCTION' if 'localhost' not in settings.database_url else 'DEVELOPMENT'}")
         init_db()
         print("✅ Database initialized successfully")
     except Exception as e:
         print(f"❌ Database initialization failed: {e}")
+        print(f"❌ Exception type: {type(e).__name__}")
         # Don't fail startup completely, let health check handle it
         pass
 
