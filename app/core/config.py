@@ -90,7 +90,7 @@ if _built and not (os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")):
 
 # TEMPORARY FALLBACK - hardcode the working connection string
 # This bypasses all environment variable issues
-TEMP_DATABASE_URL = "postgresql://postgres:shortselling123@db.wxptvzpmrtwnpugzfyeg.supabase.co:5432/postgres"
+TEMP_DATABASE_URL = "postgresql://postgres.wxptvzpmrtwnpugzfyeg:shortselling123@aws-1-eu-west-2.pooler.supabase.com:6543/postgres"
 
 # Set it in environment so Pydantic can find it
 if not os.getenv("DATABASE_URL"):
