@@ -67,7 +67,9 @@ templates = Jinja2Templates(directory="frontend/build") if os.path.exists("front
 async def startup_event():
     """Initialize database on startup"""
     print("🚀 Starting ShortSelling.eu backend...")
-    print(f"📊 Database host: {settings.normalized_database_url.split('@')[1].split('/')[0] if '@' in settings.normalized_database_url else 'unknown'}")
+    from sqlalchemy.engine.url import make_url
+    db_host = make_url(settings.database_url.get_secret_value()).host
+    print(f"📊 Database host: {db_host}")
     
     # Ensure database connection with retries
     ensure_db_ready()

@@ -8,9 +8,23 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+def normalize_db_url(raw: str) -> str:
+    """Normalize database URL with proper driver and SSL"""
+    url = make_url(raw)
+    # ensure psycopg2 driver and sslmode unless explicitly disabled
+    if url.drivername == "postgresql":
+        url = url.set(drivername="postgresql+psycopg2")
+    q = dict(url.query)
+    q.setdefault("sslmode", "require")
+    url = url.set(query=q)
+    return str(url)
+
+# Get the normalized database URL
+DATABASE_URL = normalize_db_url(settings.database_url.get_secret_value())
+
 # Create database engine with robust production settings
 engine = create_engine(
-    settings.normalized_database_url,
+    DATABASE_URL,
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
@@ -21,7 +35,7 @@ engine = create_engine(
 )
 
 # Log connection info (without password)
-db_url = make_url(settings.normalized_database_url)
+db_url = make_url(DATABASE_URL)
 logger.info(f"🔗 Database host: {db_url.host}; sslmode: {db_url.query.get('sslmode', 'default')}")
 
 # Global database readiness flag

@@ -1,19 +1,20 @@
-from pydantic_settings import BaseSettings
-from pydantic import Field
-from typing import Optional, List
 import os
-from sqlalchemy.engine.url import make_url
+from typing import Optional, List
+from pydantic import BaseModel, Field, SecretStr, AliasChoices
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def normalize_database_url(url: str) -> str:
-    """Normalize database URL for production use"""
-    u = make_url(url)
-    if u.drivername.startswith("postgresql"):
-        # Enforce SSL unless explicitly disabled
-        q = dict(u.query)
-        q.setdefault("sslmode", "require")
-        u = u.set(query=q)
-    return str(u)
+def _maybe_build_from_pg_parts() -> Optional[str]:
+    """Build a postgres URL if DATABASE_URL/POSTGRES_URL are absent but PG* parts exist."""
+    host = os.getenv("PGHOST")
+    db = os.getenv("PGDATABASE") 
+    user = os.getenv("PGUSER")
+    pwd = os.getenv("PGPASSWORD")
+    port = os.getenv("PGPORT", "5432")
+    
+    if all([host, db, user, pwd]):
+        return f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{db}?sslmode=require"
+    return None
 
 
 class Settings(BaseSettings):
@@ -22,31 +23,25 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
     
-    # Database - require DATABASE_URL in production
-    database_url: str = Field(..., env=['DATABASE_URL', 'POSTGRES_URL'])
-    
-    @property
-    def normalized_database_url(self) -> str:
-        """Get normalized database URL with proper SSL settings"""
-        return normalize_database_url(self.database_url)
+    # Database - accept DATABASE_URL or POSTGRES_URL
+    database_url: SecretStr = Field(
+        ...,
+        validation_alias=AliasChoices('DATABASE_URL', 'POSTGRES_URL')
+    )
     
     # Redis
     redis_url: str = "redis://localhost:6379"
     
     # Security
-    secret_key: str = Field(
-        default="your-secret-key-change-this-in-production",
-        env="SECRET_KEY"
+    secret_key: SecretStr = Field(
+        default="your-secret-key-change-this-in-production"
     )
     
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
     # Google Analytics
-    google_analytics_id: Optional[str] = Field(
-        default="G-T14FW9YJ26",
-        env="GOOGLE_ANALYTICS_ID"
-    )
+    google_analytics_id: Optional[str] = "G-T14FW9YJ26"
     
     # Email
     smtp_server: str = "smtp.gmail.com"
@@ -80,17 +75,30 @@ class Settings(BaseSettings):
         {"code": "LU", "name": "Luxembourg", "flag": "LU", "priority": "low", "url": "https://shortselling.apps.cssf.lu/"}
     ]
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 
-# Fail fast if DATABASE_URL is missing in production
+# Try to build from PG parts if main URL vars are missing
+_built = _maybe_build_from_pg_parts()
+if _built and not (os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")):
+    os.environ["DATABASE_URL"] = _built
+
+# Instantiate settings with clear error messages
 try:
     settings = Settings()
 except Exception as e:
-    if "DATABASE_URL" in str(e):
-        print("❌ DATABASE_URL environment variable is required!")
-        print("Set it to your Neon database connection string.")
-        raise RuntimeError("DATABASE_URL must be set in production") from e
+    missing_url = not (os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL") or _maybe_build_from_pg_parts())
+    if missing_url:
+        raise RuntimeError(
+            "Missing database URL. Set one of:\n"
+            "  - DATABASE_URL (preferred)\n"
+            "  - POSTGRES_URL\n" 
+            "  - or PGHOST/PGDATABASE/PGUSER/PGPASSWORD (+ optional PGPORT)\n"
+            "Example: DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/dbname?sslmode=require"
+        ) from e
     raise
