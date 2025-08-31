@@ -1,56 +1,24 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.engine.url import make_url
 import time
 import logging
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-def normalize_db_url(raw: str) -> str:
-    """Normalize database URL with proper driver and SSL"""
-    # Strip psql command wrapper and quotes
-    s = raw.strip().strip("'").strip('"')
-    if s.startswith("psql "):
-        s = s.split(" ", 1)[1].strip().strip("'").strip('"')
-    
-    url = make_url(s)
-    # ensure psycopg2 driver and sslmode unless explicitly disabled
-    if url.drivername == "postgresql":
-        url = url.set(drivername="postgresql+psycopg2")
-    q = dict(url.query)
-    q.setdefault("sslmode", "require")
-    # Remove problematic channel_binding
-    q.pop("channel_binding", None)
-    url = url.set(query=q)
-    return str(url)
+# Use the database URL directly from settings - NO MODIFICATIONS
+DATABASE_URL = settings.database_url
+print(f"🐛 USING DATABASE_URL: {DATABASE_URL}")
 
-# Get the normalized database URL
-raw_url = settings.database_url.get_secret_value()
-print(f"🐛 RAW URL from settings: {raw_url}")
-
-DATABASE_URL = normalize_db_url(raw_url)
-print(f"🐛 NORMALIZED URL: {DATABASE_URL}")
-
-parsed = make_url(DATABASE_URL)
-print(f"🐛 PARSED - User: {parsed.username}, Host: {parsed.host}, Port: {parsed.port}, DB: {parsed.database}")
-
-# Create database engine with robust production settings
+# Create simple database engine 
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
-    pool_recycle=1800,  # 30 minutes
-    pool_timeout=30,
-    echo=settings.debug,
-    future=True
+    echo=settings.debug
 )
 
-# Log connection info (without password)
-db_url = make_url(DATABASE_URL)
-logger.info(f"🔗 Database host: {db_url.host}; sslmode: {db_url.query.get('sslmode', 'default')}")
+print(f"🐛 ENGINE CREATED SUCCESSFULLY")
 
 # Global database readiness flag
 db_ready = False
