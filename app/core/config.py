@@ -1,6 +1,19 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import Optional, List
 import os
+from sqlalchemy.engine.url import make_url
+
+
+def normalize_database_url(url: str) -> str:
+    """Normalize database URL for production use"""
+    u = make_url(url)
+    if u.drivername.startswith("postgresql"):
+        # Enforce SSL unless explicitly disabled
+        q = dict(u.query)
+        q.setdefault("sslmode", "require")
+        u = u.set(query=q)
+    return str(u)
 
 
 class Settings(BaseSettings):
@@ -9,25 +22,30 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
     
-    # Database with UTF-8 encoding
-    database_url: str = "postgresql://jpdib@localhost:5432/shortselling?client_encoding=utf8"
+    # Database - require DATABASE_URL in production
+    database_url: str = Field(..., env=['DATABASE_URL', 'POSTGRES_URL'])
+    
+    @property
+    def normalized_database_url(self) -> str:
+        """Get normalized database URL with proper SSL settings"""
+        return normalize_database_url(self.database_url)
     
     # Redis
     redis_url: str = "redis://localhost:6379"
     
     # Security
-    secret_key: str = os.environ.get(
-        "SECRET_KEY", 
-        "your-secret-key-change-this-in-production"
+    secret_key: str = Field(
+        default="your-secret-key-change-this-in-production",
+        env="SECRET_KEY"
     )
     
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
     # Google Analytics
-    google_analytics_id: Optional[str] = os.environ.get(
-        "GOOGLE_ANALYTICS_ID", 
-        "G-T14FW9YJ26"
+    google_analytics_id: Optional[str] = Field(
+        default="G-T14FW9YJ26",
+        env="GOOGLE_ANALYTICS_ID"
     )
     
     # Email
@@ -65,12 +83,14 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
-        
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Override database_url with environment variable if available
-        if "DATABASE_URL" in os.environ:
-            self.database_url = os.environ["DATABASE_URL"]
 
 
-settings = Settings()
+# Fail fast if DATABASE_URL is missing in production
+try:
+    settings = Settings()
+except Exception as e:
+    if "DATABASE_URL" in str(e):
+        print("❌ DATABASE_URL environment variable is required!")
+        print("Set it to your Neon database connection string.")
+        raise RuntimeError("DATABASE_URL must be set in production") from e
+    raise

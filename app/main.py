@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 import os
 
 from app.core.config import settings
-from app.db.database import init_db
+from app.db.database import init_db, ensure_db_ready, db_ready
 from app.api import countries, companies, managers, positions, analytics, subscriptions, csv_export, scraping, search
 
 # Create FastAPI app
@@ -66,19 +66,20 @@ templates = Jinja2Templates(directory="frontend/build") if os.path.exists("front
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
-    try:
-        print(f"🔗 Connecting to database...")
-        print(f"📊 DATABASE_URL from env: {os.environ.get('DATABASE_URL', 'NOT SET')[:30]}...")
-        print(f"📊 Settings database_url: {settings.database_url[:30]}...")
-        print(f"🌍 Environment: {'PRODUCTION' if 'localhost' not in settings.database_url else 'DEVELOPMENT'}")
-        print(f"🔄 Config loaded at startup")
-        init_db()
-        print("✅ Database initialized successfully")
-    except Exception as e:
-        print(f"❌ Database initialization failed: {e}")
-        print(f"❌ Exception type: {type(e).__name__}")
-        # Don't fail startup completely, let health check handle it
-        pass
+    print("🚀 Starting ShortSelling.eu backend...")
+    print(f"📊 Database host: {settings.normalized_database_url.split('@')[1].split('/')[0] if '@' in settings.normalized_database_url else 'unknown'}")
+    
+    # Ensure database connection with retries
+    ensure_db_ready()
+    
+    if db_ready:
+        try:
+            init_db()
+            print("✅ Database and tables initialized successfully")
+        except Exception as e:
+            print(f"⚠️ Table initialization failed: {e}")
+    else:
+        print("⚠️ Database not ready - API endpoints will return 503")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -92,9 +93,18 @@ async def read_root(request: Request):
             status_code=200
         )
 
-# Add middleware to log requests for debugging
+# Add middleware to handle database readiness and logging
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def database_and_logging_middleware(request: Request, call_next):
+    # Short-circuit API requests if database is not ready
+    if not db_ready and request.url.path.startswith("/api/"):
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            {"error": "Database not ready", "status": "service unavailable"}, 
+            status_code=503
+        )
+    
+    # Log requests for debugging
     print(f"🔍 Request: {request.method} {request.url}")
     response = await call_next(request)
     print(f"✅ Response: {response.status_code}")
@@ -120,8 +130,25 @@ async def serve_react_app(request: Request, full_path: str):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Basic health check endpoint"""
     return {"status": "healthy", "app": settings.app_name, "version": settings.app_version}
+
+@app.get("/health/db")
+async def health_db():
+    """Database health check endpoint"""
+    from fastapi import HTTPException
+    from app.db.database import engine
+    from sqlalchemy import text
+    
+    if not db_ready:
+        raise HTTPException(status_code=503, detail="Database not ready")
+    
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"db": "healthy"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database unhealthy: {str(e)}")
 
 @app.get("/debug")
 async def debug_info():

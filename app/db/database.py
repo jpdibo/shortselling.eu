@@ -1,33 +1,58 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.engine.url import make_url
+import time
+import logging
 from app.core.config import settings
 
-# Create database engine with UTF-8 encoding
-if "localhost" in settings.database_url:
-    # Local development
-    engine = create_engine(
-        settings.database_url,
-        poolclass=StaticPool,
-        pool_pre_ping=True,
-        echo=settings.debug,
-        connect_args={
-            "client_encoding": "utf8",
-            "options": "-c client_encoding=utf8"
-        }
-    )
-else:
-    # Production (Railway/Neon) - simpler configuration
-    engine = create_engine(
-        settings.database_url,
-        pool_pre_ping=True,
-        echo=settings.debug,
-        pool_size=10,
-        max_overflow=20
-    )
+logger = logging.getLogger(__name__)
+
+# Create database engine with robust production settings
+engine = create_engine(
+    settings.normalized_database_url,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=1800,  # 30 minutes
+    pool_timeout=30,
+    echo=settings.debug,
+    future=True
+)
+
+# Log connection info (without password)
+db_url = make_url(settings.normalized_database_url)
+logger.info(f"🔗 Database host: {db_url.host}; sslmode: {db_url.query.get('sslmode', 'default')}")
+
+# Global database readiness flag
+db_ready = False
+
+def try_connect():
+    """Test database connection"""
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+
+def ensure_db_ready():
+    """Ensure database is ready with retry logic"""
+    global db_ready
+    
+    for attempt in range(5):
+        try:
+            logger.info(f"🔄 Database connection attempt {attempt + 1}/5")
+            try_connect()
+            db_ready = True
+            logger.info("✅ Database connection successful")
+            return
+        except Exception as e:
+            logger.warning(f"❌ Database connection attempt {attempt + 1} failed: {e}")
+            if attempt < 4:  # Don't sleep on last attempt
+                time.sleep(2 ** attempt)
+    
+    logger.error("❌ Database connection failed after 5 attempts")
+    db_ready = False
 
 # Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 
 def get_db():
@@ -42,4 +67,14 @@ def get_db():
 def init_db():
     """Initialize database with tables"""
     from app.db.models import Base
-    Base.metadata.create_all(bind=engine)
+    
+    if not db_ready:
+        logger.warning("⚠️ Database not ready, skipping table creation")
+        return
+        
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("📋 Database tables initialized")
+    except Exception as e:
+        logger.error(f"❌ Failed to create database tables: {e}")
+        raise
