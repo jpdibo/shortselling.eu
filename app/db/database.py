@@ -34,17 +34,18 @@ def ensure_db_ready():
     
     for attempt in range(5):
         try:
-            logger.info(f"🔄 Database connection attempt {attempt + 1}/5")
+            print(f"🔄 Database connection attempt {attempt + 1}/5")
             try_connect()
             db_ready = True
-            logger.info("✅ Database connection successful")
+            print("✅ Database connection successful")
             return
         except Exception as e:
-            logger.warning(f"❌ Database connection attempt {attempt + 1} failed: {e}")
+            print(f"❌ Database connection attempt {attempt + 1} failed: {str(e)}")
+            print(f"❌ Error type: {type(e).__name__}")
             if attempt < 4:  # Don't sleep on last attempt
                 time.sleep(2 ** attempt)
     
-    logger.error("❌ Database connection failed after 5 attempts")
+    print("❌ Database connection failed after 5 attempts")
     db_ready = False
 
 # Create session factory
@@ -65,12 +66,12 @@ def init_db():
     from app.db.models import Base
     
     if not db_ready:
-        logger.warning("⚠️ Database not ready, skipping table creation")
+        print("⚠️ Database not ready, skipping table creation")
         return
         
     try:
         Base.metadata.create_all(bind=engine)
-        logger.info("📋 Database tables initialized")
+        print("📋 Database tables initialized")
     except Exception as e:
-        logger.error(f"❌ Failed to create database tables: {e}")
+        print(f"❌ Failed to create database tables: {e}")
         raise
