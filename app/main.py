@@ -47,7 +47,15 @@ templates = Jinja2Templates(directory="frontend/build")
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
-    init_db()
+    try:
+        print(f"🔗 Connecting to database...")
+        print(f"📊 Database URL: {settings.database_url[:50]}...")
+        init_db()
+        print("✅ Database initialized successfully")
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+        # Don't fail startup completely, let health check handle it
+        pass
 
 
 @app.get("/", response_class=HTMLResponse)
