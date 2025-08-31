@@ -9,7 +9,7 @@ Zero-safe parsing:
 
 import pandas as pd
 from io import BytesIO
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 from .base_scraper import BaseScraper
 
 class UKScraper(BaseScraper):
@@ -29,7 +29,7 @@ class UKScraper(BaseScraper):
     
     # ---------- helpers ----------
     @staticmethod
-    def _parse_percent(value) -> float | None:
+    def _parse_percent(value) -> Union[float, None]:
         """
         Robust % parser:
           - numeric: passthrough
