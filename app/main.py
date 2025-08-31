@@ -104,8 +104,12 @@ async def read_root(request: Request):
 @app.middleware("http")
 async def database_and_logging_middleware(request: Request, call_next):
     # Short-circuit API requests if database is not ready
+    from app.db.database import db_ready
+    print(f"🔍 Middleware - Database ready: {db_ready}, Path: {request.url.path}")
+    
     if not db_ready and request.url.path.startswith("/api/"):
         from fastapi.responses import JSONResponse
+        print(f"❌ Blocking API request: {request.url.path} - Database not ready")
         return JSONResponse(
             {"error": "Database not ready", "status": "service unavailable"}, 
             status_code=503
