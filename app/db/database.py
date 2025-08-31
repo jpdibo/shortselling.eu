@@ -10,12 +10,19 @@ logger = logging.getLogger(__name__)
 
 def normalize_db_url(raw: str) -> str:
     """Normalize database URL with proper driver and SSL"""
-    url = make_url(raw)
+    # Strip psql command wrapper and quotes
+    s = raw.strip().strip("'").strip('"')
+    if s.startswith("psql "):
+        s = s.split(" ", 1)[1].strip().strip("'").strip('"')
+    
+    url = make_url(s)
     # ensure psycopg2 driver and sslmode unless explicitly disabled
     if url.drivername == "postgresql":
         url = url.set(drivername="postgresql+psycopg2")
     q = dict(url.query)
     q.setdefault("sslmode", "require")
+    # Remove problematic channel_binding
+    q.pop("channel_binding", None)
     url = url.set(query=q)
     return str(url)
 
