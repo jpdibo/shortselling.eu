@@ -1,15 +1,13 @@
 {
-  "name": "shortselling.eu",
+  "name": "shortselling-eu",
   "version": "1.0.0",
-  "description": "Track and analyze short-selling positions across European countries. Get real-time insights into market activities and regulatory disclosures.",
-  "main": "index.js",
-  "scripts": {},
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "@types/node": "^24.3.0"
+  "description": "ShortSelling.eu - European short-selling positions tracker",
+  "scripts": {
+    "start": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "install-deps": "cd frontend && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
