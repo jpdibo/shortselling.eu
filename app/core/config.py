@@ -29,7 +29,10 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     
     # Google Analytics
-    google_analytics_id: Optional[str] = None
+    google_analytics_id: Optional[str] = Field(
+        default="G-T14FW9YJ26",
+        env="GOOGLE_ANALYTICS_ID"
+    )
     
     # Email
     smtp_server: str = "smtp.gmail.com"
