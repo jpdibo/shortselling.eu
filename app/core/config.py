@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
 from typing import Optional, List
 import os
 
@@ -11,27 +10,27 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Database with UTF-8 encoding
-    database_url: str = Field(
-        default="postgresql://jpdib@localhost:5432/shortselling?client_encoding=utf8",
-        env="DATABASE_URL"
+    database_url: str = os.environ.get(
+        "DATABASE_URL", 
+        "postgresql://jpdib@localhost:5432/shortselling?client_encoding=utf8"
     )
     
     # Redis
     redis_url: str = "redis://localhost:6379"
     
     # Security
-    secret_key: str = Field(
-        default="your-secret-key-change-this-in-production",
-        env="SECRET_KEY"
+    secret_key: str = os.environ.get(
+        "SECRET_KEY", 
+        "your-secret-key-change-this-in-production"
     )
     
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
     # Google Analytics
-    google_analytics_id: Optional[str] = Field(
-        default="G-T14FW9YJ26",
-        env="GOOGLE_ANALYTICS_ID"
+    google_analytics_id: Optional[str] = os.environ.get(
+        "GOOGLE_ANALYTICS_ID", 
+        "G-T14FW9YJ26"
     )
     
     # Email

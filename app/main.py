@@ -132,6 +132,41 @@ async def debug_info():
         "environment": "production" if os.environ.get('RAILWAY_ENVIRONMENT') else "development"
     }
 
+@app.post("/initialize-db")
+async def initialize_database():
+    """Initialize the database with tables and countries"""
+    try:
+        # Run the same initialization as the script
+        from app.db.models import Country
+        from app.db.database import SessionLocal
+        
+        db = SessionLocal()
+        
+        # Check if countries already exist
+        existing_countries = db.query(Country).count()
+        if existing_countries > 0:
+            return {"status": "success", "message": f"Database already initialized with {existing_countries} countries"}
+        
+        # Add countries from settings
+        for country_data in settings.countries:
+            country = Country(
+                code=country_data['code'],
+                name=country_data['name'],
+                flag=country_data['flag'],
+                priority=country_data['priority'],
+                url=country_data['url'],
+                is_active=True
+            )
+            db.add(country)
+        
+        db.commit()
+        db.close()
+        
+        return {"status": "success", "message": f"Successfully initialized database with {len(settings.countries)} countries"}
+        
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to initialize database: {str(e)}"}
+
 
 if __name__ == "__main__":
     import uvicorn
