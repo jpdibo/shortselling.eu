@@ -1,0 +1,26 @@
+{
+  "short_name": "ShortSelling.eu",
+  "name": "ShortSelling.eu - European Short Selling Data",
+  "description": "Track and analyze short-selling positions across European countries. Get real-time insights into market activities and regulatory disclosures",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "logo.jpeg",
+      "type": "image/jpeg",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
