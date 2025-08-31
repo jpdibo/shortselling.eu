@@ -1,3 +1,14 @@
+FROM node:18-alpine as frontend-build
+
+# Build the React frontend
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci --only=production
+
+COPY frontend/ ./
+RUN npm run build
+
+# Python backend stage
 FROM python:3.10-slim
 
 WORKDIR /app
@@ -11,8 +22,11 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application
+# Copy the backend application
 COPY . .
+
+# Copy the built frontend from the first stage
+COPY --from=frontend-build /app/frontend/build ./frontend/build
 
 # Expose port
 EXPOSE 8000

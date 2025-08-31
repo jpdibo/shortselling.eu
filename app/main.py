@@ -36,12 +36,19 @@ app.include_router(csv_export.router, prefix="/api/csv", tags=["csv"])
 app.include_router(scraping.router, prefix="/api", tags=["scraping"])
 app.include_router(search.router, prefix="/api", tags=["search"])
 
-# Mount static files (only if build directory and static subdirectory exist)
+# Mount static files for React build
 if os.path.exists("frontend/build/static"):
     app.mount("/static", StaticFiles(directory="frontend/build/static"), name="static")
 
+# Mount favicon and other assets
+if os.path.exists("frontend/build"):
+    app.mount("/favicon.ico", StaticFiles(directory="frontend/build"), name="favicon")
+    app.mount("/logo.png", StaticFiles(directory="frontend/build"), name="logo")
+    app.mount("/logo-bear.png", StaticFiles(directory="frontend/build"), name="logo-bear")
+    app.mount("/manifest.json", StaticFiles(directory="frontend/build"), name="manifest")
+
 # Templates for server-side rendering
-templates = Jinja2Templates(directory="frontend/build")
+templates = Jinja2Templates(directory="frontend/build") if os.path.exists("frontend/build") else None
 
 
 @app.on_event("startup")
@@ -60,8 +67,31 @@ async def startup_event():
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    """Serve the main application"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Serve the React application"""
+    if templates and os.path.exists("frontend/build/index.html"):
+        return templates.TemplateResponse("index.html", {"request": request})
+    else:
+        return HTMLResponse(
+            content="<h1>ShortSelling.eu API</h1><p>Frontend not built. Visit /docs for API documentation.</p>",
+            status_code=200
+        )
+
+# Catch-all route for React Router (SPA)
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+async def serve_react_app(request: Request, full_path: str):
+    """Serve React app for all non-API routes (SPA routing)"""
+    # Don't intercept API routes
+    if full_path.startswith("api/"):
+        return HTMLResponse(content="Not Found", status_code=404)
+    
+    # Serve index.html for all other routes (React Router will handle routing)
+    if templates and os.path.exists("frontend/build/index.html"):
+        return templates.TemplateResponse("index.html", {"request": request})
+    else:
+        return HTMLResponse(
+            content="<h1>ShortSelling.eu API</h1><p>Frontend not built. Visit /docs for API documentation.</p>",
+            status_code=200
+        )
 
 
 @app.get("/health")
