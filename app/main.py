@@ -68,7 +68,8 @@ async def startup_event():
     """Initialize database on startup"""
     try:
         print(f"🔗 Connecting to database...")
-        print(f"📊 Database URL prefix: {settings.database_url[:30]}...")
+        print(f"📊 DATABASE_URL from env: {os.environ.get('DATABASE_URL', 'NOT SET')[:30]}...")
+        print(f"📊 Settings database_url: {settings.database_url[:30]}...")
         print(f"🌍 Environment: {'PRODUCTION' if 'localhost' not in settings.database_url else 'DEVELOPMENT'}")
         print(f"🔄 Config loaded at startup")
         init_db()

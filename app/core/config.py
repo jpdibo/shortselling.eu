@@ -9,11 +9,13 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
     
-    # Database with UTF-8 encoding
-    database_url: str = os.environ.get(
-        "DATABASE_URL", 
-        "postgresql://jpdib@localhost:5432/shortselling?client_encoding=utf8"
-    )
+    @property
+    def database_url(self) -> str:
+        """Get database URL from environment or use default"""
+        return os.environ.get(
+            "DATABASE_URL", 
+            "postgresql://jpdib@localhost:5432/shortselling?client_encoding=utf8"
+        )
     
     # Redis
     redis_url: str = "redis://localhost:6379"
