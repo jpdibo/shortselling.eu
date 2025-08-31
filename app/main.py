@@ -68,7 +68,7 @@ async def startup_event():
     """Initialize database on startup"""
     print("🚀 Starting ShortSelling.eu backend...")
     from sqlalchemy.engine.url import make_url
-    db_host = make_url(settings.database_url.get_secret_value()).host
+    db_host = make_url(settings.database_url).host
     print(f"📊 Database host: {db_host}")
     
     # Ensure database connection with retries
