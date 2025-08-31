@@ -40,12 +40,24 @@ app.include_router(search.router, prefix="/api", tags=["search"])
 if os.path.exists("frontend/build/static"):
     app.mount("/static", StaticFiles(directory="frontend/build/static"), name="static")
 
-# Mount favicon and other assets
-if os.path.exists("frontend/build"):
-    app.mount("/favicon.ico", StaticFiles(directory="frontend/build"), name="favicon")
-    app.mount("/logo.png", StaticFiles(directory="frontend/build"), name="logo")
-    app.mount("/logo-bear.png", StaticFiles(directory="frontend/build"), name="logo-bear")
-    app.mount("/manifest.json", StaticFiles(directory="frontend/build"), name="manifest")
+# Serve individual assets from build directory
+from fastapi.responses import FileResponse
+
+@app.get("/favicon.ico")
+async def get_favicon():
+    return FileResponse("frontend/build/favicon.ico") if os.path.exists("frontend/build/favicon.ico") else FileResponse("frontend/build/logo.jpeg")
+
+@app.get("/logo.png")
+async def get_logo():
+    return FileResponse("frontend/build/logo.png") if os.path.exists("frontend/build/logo.png") else None
+
+@app.get("/logo-bear.png") 
+async def get_logo_bear():
+    return FileResponse("frontend/build/logo-bear.png") if os.path.exists("frontend/build/logo-bear.png") else None
+
+@app.get("/manifest.json")
+async def get_manifest():
+    return FileResponse("frontend/build/manifest.json") if os.path.exists("frontend/build/manifest.json") else None
 
 # Templates for server-side rendering
 templates = Jinja2Templates(directory="frontend/build") if os.path.exists("frontend/build") else None
@@ -76,13 +88,21 @@ async def read_root(request: Request):
             status_code=200
         )
 
+# Add middleware to log requests for debugging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"🔍 Request: {request.method} {request.url}")
+    response = await call_next(request)
+    print(f"✅ Response: {response.status_code}")
+    return response
+
 # Catch-all route for React Router (SPA)
 @app.get("/{full_path:path}", response_class=HTMLResponse)
 async def serve_react_app(request: Request, full_path: str):
     """Serve React app for all non-API routes (SPA routing)"""
-    # Don't intercept API routes
+    # Don't intercept API routes - let them return 404 naturally
     if full_path.startswith("api/"):
-        return HTMLResponse(content="Not Found", status_code=404)
+        return HTMLResponse(content=f"API endpoint not found: /{full_path}", status_code=404)
     
     # Serve index.html for all other routes (React Router will handle routing)
     if templates and os.path.exists("frontend/build/index.html"):
@@ -98,6 +118,19 @@ async def serve_react_app(request: Request, full_path: str):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "app": settings.app_name, "version": settings.app_version}
+
+@app.get("/debug")
+async def debug_info():
+    """Debug information for deployment troubleshooting"""
+    return {
+        "frontend_build_exists": os.path.exists("frontend/build"),
+        "index_html_exists": os.path.exists("frontend/build/index.html"),
+        "logo_bear_exists": os.path.exists("frontend/build/logo-bear.png"),
+        "static_dir_exists": os.path.exists("frontend/build/static"),
+        "database_url": settings.database_url[:50] + "...",
+        "working_directory": os.getcwd(),
+        "environment": "production" if os.environ.get('RAILWAY_ENVIRONMENT') else "development"
+    }
 
 
 if __name__ == "__main__":
