@@ -1,6 +1,9 @@
 import os
 from typing import Optional, List
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 
 class Settings:
     """Simple settings class - no Pydantic complications"""
